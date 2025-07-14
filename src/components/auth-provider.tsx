@@ -9,7 +9,7 @@ import {
     updateUser as updateUserInDb,
     getClubs,
 } from "@/lib/firebase/services";
-import React, { createContext, useState, useEffect, ReactNode, useCallback, useContext } from "react";
+import React, { createContext, useState, useEffect, ReactNode, useCallback, useContext, useMemo } from "react";
 import { auth } from '@/lib/firebase/config';
 import { 
     GoogleAuthProvider, 
@@ -92,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Login error:", error);
     } finally {
-      setLoading(false);
+      // setLoading(false) is handled by onAuthStateChanged
     }
   }, []);
 
@@ -108,7 +108,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
 
-  const value = { user, loading, login, logout, updateUser, users, clubs };
+  const value = useMemo(() => ({
+    user,
+    loading,
+    login,
+    logout,
+    updateUser,
+    users,
+    clubs
+  }), [user, loading, login, logout, updateUser, users, clubs]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
