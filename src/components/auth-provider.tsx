@@ -18,6 +18,7 @@ import {
     onAuthStateChanged, 
     type User as FirebaseUser 
 } from "firebase/auth";
+import { browserLocalPersistence, setPersistence } from "firebase/auth";
 
 interface AuthContextType {
   user: User | null;
@@ -37,23 +38,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const handleUser = useCallback(async (firebaseUser: FirebaseUser | null) => {
     setLoading(true);
+    console.log("🧪 handleUser - firebaseUser:", firebaseUser);
+  
     if (firebaseUser?.email) {
       let appUser = await getUserByEmail(firebaseUser.email);
+      console.log("🧪 handleUser - existing user from DB:", appUser);
+  
       if (!appUser) {
-        // If user does not exist in Firestore, create a new one.
         const newUser: Omit<User, 'id'> = {
           email: firebaseUser.email,
           name: firebaseUser.displayName || "New User",
-          role: "student", // Default role
+          role: "student",
         };
         appUser = await createUser(newUser);
+        console.log("🧪 handleUser - created new user:", appUser);
       }
+  
       setUser(appUser);
       sessionStorage.setItem("campus-hub-user", JSON.stringify(appUser));
     } else {
+      console.log("🧪 handleUser - No firebaseUser or no email");
       setUser(null);
       sessionStorage.removeItem("campus-hub-user");
     }
+  
     setLoading(false);
   }, []);
   
@@ -73,25 +81,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } else {
         // No user is signed in
+        setUser(null);
+        sessionStorage.removeItem("campus-hub-user");
         setLoading(false);
       }
     });
 
     // Handle the redirect result
-    getRedirectResult(auth)
-      .then((result) => {
+    (async () => {
+      try {
+        setLoading(true);
+        const result = await getRedirectResult(auth);
+        console.log("🧪 Redirect result:", result);
+    
         if (result?.user) {
-          handleUser(result.user);
+          await handleUser(result.user);
         }
-      })
-      .catch((error) => {
-        console.error("Error processing redirect result:", error);
-      }).finally(() => {
-        // If there's no user in session storage after trying, stop loading
-        if (!sessionStorage.getItem("campus-hub-user")) {
-          setLoading(false);
+      } catch (error) {
+        console.error("🧪 Redirect result error:", error);
+      } finally {
+        // Let onAuthStateChanged handle the final loading state
+        // to avoid race conditions
+        const finalLoadingState = auth.currentUser ? false : true;
+        if(sessionStorage.getItem("campus-hub-user")) {
+            setLoading(false);
+        } else {
+            setLoading(finalLoadingState);
         }
-      });
+      }
+    })();    
+    
     
     getUsers().then(setUsers);
 
@@ -101,7 +120,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async () => {
     setLoading(true);
     const provider = new GoogleAuthProvider();
-    await signInWithRedirect(auth, provider);
+  
+    try {
+      await setPersistence(auth, browserLocalPersistence);
+      await signInWithRedirect(auth, provider);
+    } catch (err) {
+      console.error("🧪 Login error:", err);
+      setLoading(false);
+    }
   }, []);
 
   const logout = useCallback(async () => {
