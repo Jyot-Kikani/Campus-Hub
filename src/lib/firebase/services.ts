@@ -45,14 +45,20 @@ export async function getUser(id: string): Promise<User | null> {
     return userDoc.exists() ? docToType<User>(userDoc) : null;
 }
 
-export async function getUserByRole(role: User['role']): Promise<User | null> {
-    const q = query(collection(db, "users"), where("role", "==", role));
+export async function getUserByEmail(email: string): Promise<User | null> {
+    const q = query(collection(db, "users"), where("email", "==", email));
     const snapshot = await getDocs(q);
     if (snapshot.empty) {
         return null;
     }
     return docToType<User>(snapshot.docs[0]);
 }
+
+export async function createUser(userData: Omit<User, 'id'>): Promise<User> {
+    const docRef = await addDoc(collection(db, 'users'), userData);
+    return { id: docRef.id, ...userData };
+}
+
 
 export async function updateUserRole(userId: string, newRole: User['role']) {
     const userRef = doc(db, 'users', userId);
