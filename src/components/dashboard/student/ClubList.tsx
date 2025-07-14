@@ -47,7 +47,7 @@ export function ClubList({ clubs, isLoading }: ClubListProps) {
               <CardDescription className="font-body line-clamp-3">{club.description}</CardDescription>
             </CardContent>
             <CardFooter className="pt-4">
-              <Link href={`/clubs/${club.id}`} passHref>
+              <Link href={`/clubs/${club.id}`} className="w-full">
                 <Button variant="outline" className="w-full">
                   Learn More <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>

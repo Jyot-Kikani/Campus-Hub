@@ -34,7 +34,7 @@ async function EventDetailPageContent({ eventId }: { eventId: string }) {
         <div className="flex flex-col min-h-screen bg-secondary/20">
             <Header />
             <main className="flex-grow container mx-auto px-4 py-8">
-                 <Link href="/" passHref>
+                 <Link href="/">
                     <Button variant="ghost" className="mb-6">
                         <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
                     </Button>
@@ -80,7 +80,7 @@ async function EventDetailPageContent({ eventId }: { eventId: string }) {
                                         <Users className="w-4 h-4 mt-0.5 text-primary" />
                                         <div>
                                             <p className="font-semibold">Organized by</p>
-                                            <Link href={`/clubs/${club.id}`} passHref>
+                                            <Link href={`/clubs/${club.id}`}>
                                                 <Button variant="link" className="p-0 h-auto text-sm text-primary hover:underline">{club.name}</Button>
                                             </Link>
                                         </div>

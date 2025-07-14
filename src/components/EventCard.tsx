@@ -48,7 +48,7 @@ export function EventCard({
         </div>
       </CardContent>
       <CardFooter className="flex justify-between items-center pt-4 bg-secondary/50 p-4">
-        <Link href={`/events/${event.id}`} passHref>
+        <Link href={`/events/${event.id}`}>
            <Button variant="link" className="p-0 h-auto">View Details <ArrowRight className="ml-1 h-4 w-4" /></Button>
         </Link>
         {userRole === 'student' && (

@@ -15,7 +15,7 @@ interface ClubDetailPageClientProps {
 export function ClubDetailPageClient({ club, initialEvents }: ClubDetailPageClientProps) {
     return (
         <main className="flex-grow container mx-auto px-4 py-8">
-            <Link href="/" passHref>
+            <Link href="/">
                 <Button variant="ghost" className="mb-6">
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
                 </Button>
@@ -54,7 +54,7 @@ export function ClubDetailPageClient({ club, initialEvents }: ClubDetailPageClie
                                                 </div>
                                             </div>
                                         </div>
-                                        <Link href={`/events/${event.id}`} passHref>
+                                        <Link href={`/events/${event.id}`}>
                                             <Button variant="outline">View Event</Button>
                                         </Link>
                                     </div>
