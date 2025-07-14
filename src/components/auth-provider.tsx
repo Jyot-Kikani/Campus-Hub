@@ -91,8 +91,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signInWithPopup(auth, provider);
     } catch (error) {
       console.error("Login error:", error);
-    } finally {
-      // setLoading(false) is handled by onAuthStateChanged
     }
   }, []);
 
