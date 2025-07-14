@@ -69,13 +69,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      const result = await signInWithPopup(auth, provider);
-      await handleUser(result.user);
+      await signInWithPopup(auth, provider);
+      // The onAuthStateChanged listener will handle the user creation
+      // and state update, so we don't need to do it here.
     } catch (error) {
       console.error("Login error:", error);
       setLoading(false);
     }
-  }, [handleUser]);
+  }, []);
 
   const logout = useCallback(async () => {
     await signOut(auth);
