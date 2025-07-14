@@ -12,9 +12,6 @@ function AppContent() {
   const { user, loading } = useAuth();
   const [showLogin, setShowLogin] = useState(false);
 
-  console.log("🧪 AppContent - loading:", loading);
-  console.log("🧪 AppContent - user:", user);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -24,7 +21,6 @@ function AppContent() {
   }
 
   if (!user) {
-    console.log("🧪 AppContent - No user, showing login");
     return (
       <div className="flex flex-col min-h-screen bg-background">
         <Header />
@@ -49,7 +45,6 @@ function AppContent() {
     );
   }
 
-  console.log("🧪 AppContent - User logged in, rendering dashboard");
   return <Dashboard />;
 }
 
