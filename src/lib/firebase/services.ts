@@ -144,7 +144,8 @@ export async function getRegistrationsForUser(userId: string): Promise<Registrat
 
 export async function registerForEvent(userId: string, eventId: string) {
     await addDoc(collection(db, 'registrations'), { userId, eventId });
-    revalidatePath('/dashboard');
+    // This was causing a re-render loop. The client will re-fetch data instead.
+    // revalidatePath('/dashboard');
 }
 
 export async function unregisterFromEvent(userId: string, eventId: string) {
@@ -154,7 +155,8 @@ export async function unregisterFromEvent(userId: string, eventId: string) {
         const docId = snapshot.docs[0].id;
         await deleteDoc(doc(db, 'registrations', docId));
     }
-    revalidatePath('/dashboard');
+    // This was causing a re-render loop. The client will re-fetch data instead.
+    // revalidatePath('/dashboard');
 }
 
 export async function getRegistrationsForEvent(eventId: string): Promise<Registration[]> {
