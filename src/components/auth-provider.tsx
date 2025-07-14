@@ -33,27 +33,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isHandlingUser, setIsHandlingUser] = useState(false);
 
   const handleUser = useCallback(async (firebaseUser: FirebaseUser | null) => {
+    if (isHandlingUser) return;
+    setIsHandlingUser(true);
+
     if (firebaseUser?.email) {
-      let appUser = await getUserByEmail(firebaseUser.email);
-      if (!appUser) {
-        const newUser: Omit<User, 'id'> = {
-          email: firebaseUser.email,
-          name: firebaseUser.displayName || "New User",
-          role: "student",
-        };
-        appUser = await createUser(newUser);
+      try {
+        let appUser = await getUserByEmail(firebaseUser.email);
+        if (!appUser) {
+          const newUser: Omit<User, 'id'> = {
+            email: firebaseUser.email,
+            name: firebaseUser.displayName || "New User",
+            role: "student",
+          };
+          appUser = await createUser(newUser);
+        }
+        setUser(appUser);
+      } catch (error) {
+        console.error("Error handling user:", error);
+        setUser(null);
+      } finally {
+        setLoading(false);
+        setIsHandlingUser(false);
       }
-      setUser(appUser);
-      setLoading(false);
-      return appUser;
     } else {
       setUser(null);
       setLoading(false);
-      return null;
+      setIsHandlingUser(false);
     }
-  }, []);
+  }, [isHandlingUser]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -70,8 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      // The onAuthStateChanged listener will handle the user creation
-      // and state update, so we don't need to do it here.
+      // onAuthStateChanged will handle user creation
     } catch (error) {
       console.error("Login error:", error);
       setLoading(false);
