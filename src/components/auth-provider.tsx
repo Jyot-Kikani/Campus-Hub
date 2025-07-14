@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { User } from "@/lib/types";
@@ -9,7 +10,14 @@ import {
 } from "@/lib/firebase/services";
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useContext } from "react";
 import { auth } from '@/lib/firebase/config';
-import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, type User as FirebaseUser } from "firebase/auth";
+import { 
+    GoogleAuthProvider, 
+    signInWithRedirect,
+    getRedirectResult,
+    signOut, 
+    onAuthStateChanged, 
+    type User as FirebaseUser 
+} from "firebase/auth";
 
 interface AuthContextType {
   user: User | null;
@@ -49,7 +57,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, handleUser);
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      // This handles session persistence. If user is logged in, it will be caught here.
+      if (firebaseUser && !user) {
+         handleUser(firebaseUser);
+      } else {
+        setLoading(false);
+      }
+    });
+
+    // Check for redirect result
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          handleUser(result.user);
+        }
+      })
+      .catch((error) => {
+        console.error("Error getting redirect result:", error);
+        setLoading(false);
+      });
     
     // Also check session storage on initial load
     const sessionUser = sessionStorage.getItem("campus-hub-user");
@@ -60,25 +87,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             sessionStorage.removeItem("campus-hub-user");
         }
     }
-    setLoading(false);
     
     // Fetch all users on initial load for admin panel
     getUsers().then(setUsers);
 
     return () => unsubscribe();
-  }, [handleUser]);
+  }, [handleUser, user]);
 
   const login = useCallback(async () => {
     setLoading(true);
     const provider = new GoogleAuthProvider();
-    try {
-      const result = await signInWithPopup(auth, provider);
-      await handleUser(result.user);
-    } catch (error) {
-      console.error("Authentication failed:", error);
-      setLoading(false);
-    }
-  }, [handleUser]);
+    await signInWithRedirect(auth, provider);
+    // No need to handle user here, it will be handled by getRedirectResult and onAuthStateChanged
+  }, []);
 
   const logout = useCallback(async () => {
     await signOut(auth);
