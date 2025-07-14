@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const handleUser = useCallback(async (firebaseUser: FirebaseUser | null) => {
+    setLoading(true);
     if (firebaseUser?.email) {
       let appUser = await getUserByEmail(firebaseUser.email);
       if (!appUser) {
@@ -55,18 +56,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setLoading(false);
   }, []);
-
+  
   useEffect(() => {
+    // Check session storage first for quick restore
+    const sessionUserJson = sessionStorage.getItem("campus-hub-user");
+    if (sessionUserJson) {
+      setUser(JSON.parse(sessionUserJson));
+      setLoading(false);
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      // This handles session persistence. If user is logged in, it will be caught here.
-      if (firebaseUser && !user) {
-         handleUser(firebaseUser);
+      if (firebaseUser) {
+        const sessionUser = sessionStorage.getItem("campus-hub-user");
+        if (!sessionUser) { // only handle if not already set by session
+            handleUser(firebaseUser);
+        }
       } else {
+        // No user is signed in
         setLoading(false);
       }
     });
 
-    // Check for redirect result
+    // Handle the redirect result
     getRedirectResult(auth)
       .then((result) => {
         if (result?.user) {
@@ -74,31 +85,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch((error) => {
-        console.error("Error getting redirect result:", error);
-        setLoading(false);
+        console.error("Error processing redirect result:", error);
+      }).finally(() => {
+        // If there's no user in session storage after trying, stop loading
+        if (!sessionStorage.getItem("campus-hub-user")) {
+          setLoading(false);
+        }
       });
     
-    // Also check session storage on initial load
-    const sessionUser = sessionStorage.getItem("campus-hub-user");
-    if(sessionUser) {
-        try {
-            setUser(JSON.parse(sessionUser));
-        } catch (e) {
-            sessionStorage.removeItem("campus-hub-user");
-        }
-    }
-    
-    // Fetch all users on initial load for admin panel
     getUsers().then(setUsers);
 
     return () => unsubscribe();
-  }, [handleUser, user]);
+  }, [handleUser]);
 
   const login = useCallback(async () => {
     setLoading(true);
     const provider = new GoogleAuthProvider();
     await signInWithRedirect(auth, provider);
-    // No need to handle user here, it will be handled by getRedirectResult and onAuthStateChanged
   }, []);
 
   const logout = useCallback(async () => {
