@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -6,31 +7,58 @@ import { EventList } from "@/components/dashboard/student/EventList";
 import { ClubList } from "@/components/dashboard/student/ClubList";
 import { CalendarView } from "@/components/dashboard/student/CalendarView";
 import { Calendar, Users, List } from "lucide-react";
-import { getEvents, getClubs } from "@/lib/firebase/services";
-import type { Event, Club } from "@/lib/types";
+import { getEvents, getClubs, getRegistrationsForUser, registerForEvent, unregisterFromEvent } from "@/lib/firebase/services";
+import type { Event, Club, Registration } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/hooks/use-toast";
 
 export default function StudentDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("events");
   const [events, setEvents] = useState<Event[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
+  const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchData() {
-      setIsLoading(true);
-      const [eventsData, clubsData] = await Promise.all([
-        getEvents(),
-        getClubs()
-      ]);
-      setEvents(eventsData.filter(e => new Date(e.date) > new Date()));
-      setClubs(clubsData);
-      setIsLoading(false);
-    }
-    fetchData();
-  }, []);
+  const fetchStudentData = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    const [eventsData, clubsData, registrationsData] = await Promise.all([
+      getEvents(),
+      getClubs(),
+      getRegistrationsForUser(user.id),
+    ]);
+    setEvents(eventsData.filter(e => new Date(e.date) > new Date()));
+    setClubs(clubsData);
+    setRegistrations(registrationsData);
+    setIsLoading(false);
+  }
 
+  useEffect(() => {
+    fetchStudentData();
+  }, [user]);
+
+  const handleRegister = async (eventId: string) => {
+    if (!user) return;
+    try {
+      await registerForEvent(user.id, eventId);
+      await fetchStudentData(); // Re-fetch to update state
+      toast({ title: "Success", description: "You have been registered for the event." });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to register for the event.", variant: "destructive" });
+    }
+  };
+
+  const handleUnregister = async (eventId: string) => {
+    if (!user) return;
+    try {
+      await unregisterFromEvent(user.id, eventId);
+      await fetchStudentData(); // Re-fetch to update state
+      toast({ title: "Success", description: "You have been unregistered from the event." });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to unregister from the event.", variant: "destructive" });
+    }
+  };
 
   if (!user) {
     return null;
@@ -40,7 +68,13 @@ export default function StudentDashboard() {
     events: {
       label: "Events",
       icon: List,
-      component: <EventList events={events} isLoading={isLoading} />,
+      component: <EventList 
+        events={events} 
+        registrations={registrations}
+        onRegister={handleRegister}
+        onUnregister={handleUnregister}
+        isLoading={isLoading} 
+      />,
     },
     clubs: {
       label: "Clubs",

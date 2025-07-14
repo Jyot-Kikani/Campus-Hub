@@ -1,3 +1,4 @@
+
 import { getEvent, getClub } from '@/lib/firebase/services';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
@@ -88,10 +89,8 @@ async function EventDetailPageContent({ eventId }: { eventId: string }) {
                                 )}
                             </CardContent>
                         </Card>
-                         <Button asChild size="lg" className="w-full">
-                            <a href="https://forms.gle/your-registration-form" target="_blank" rel="noopener noreferrer">
-                                Register Now
-                            </a>
+                         <Button size="lg" className="w-full" disabled>
+                            Register via Dashboard
                         </Button>
                     </div>
                 </div>

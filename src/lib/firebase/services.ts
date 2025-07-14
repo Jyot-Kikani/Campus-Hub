@@ -136,6 +136,27 @@ export async function deleteEvent(id: string) {
 
 
 // Registration services
+export async function getRegistrationsForUser(userId: string): Promise<Registration[]> {
+    const q = query(collection(db, "registrations"), where("userId", "==", userId));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => docToType<Registration>(d));
+}
+
+export async function registerForEvent(userId: string, eventId: string) {
+    await addDoc(collection(db, 'registrations'), { userId, eventId });
+    revalidatePath('/dashboard');
+}
+
+export async function unregisterFromEvent(userId: string, eventId: string) {
+    const q = query(collection(db, "registrations"), where("userId", "==", userId), where("eventId", "==", eventId));
+    const snapshot = await getDocs(q);
+    if (!snapshot.empty) {
+        const docId = snapshot.docs[0].id;
+        await deleteDoc(doc(db, 'registrations', docId));
+    }
+    revalidatePath('/dashboard');
+}
+
 export async function getRegistrationsForEvent(eventId: string): Promise<Registration[]> {
     const q = query(collection(db, "registrations"), where("eventId", "==", eventId));
     const snapshot = await getDocs(q);
@@ -147,6 +168,10 @@ export async function getRegisteredUsersForEvent(eventId: string): Promise<User[
     if (registrations.length === 0) return [];
     
     const userIds = registrations.map(r => r.userId);
+    // Firestore 'in' queries are limited to 30 items. For a real app with many users,
+    // you might need to batch these queries.
+    if (userIds.length === 0) return [];
+
     const q = query(collection(db, "users"), where("__name__", "in", userIds));
     const userSnapshot = await getDocs(q);
     return userSnapshot.docs.map(d => docToType<User>(d));

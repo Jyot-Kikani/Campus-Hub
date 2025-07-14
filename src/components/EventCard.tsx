@@ -1,3 +1,4 @@
+
 import type { Event } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,12 +52,12 @@ export function EventCard({
         <Link href={`/events/${event.id}`}>
            <Button variant="link" className="p-0 h-auto">View Details <ArrowRight className="ml-1 h-4 w-4" /></Button>
         </Link>
-        {userRole === 'student' && (
-           <Button asChild>
-              <a href="https://forms.gle/your-registration-form" target="_blank" rel="noopener noreferrer">
-                Register
-              </a>
-           </Button>
+        {userRole === 'student' && onRegister && onUnregister && (
+           isRegistered ? (
+             <Button variant="secondary" onClick={() => onUnregister(event.id)}>Unregister</Button>
+           ) : (
+             <Button onClick={() => onRegister(event.id)}>Register</Button>
+           )
         )}
         {userRole === 'club_staff' && onEdit && onDelete && onViewRegistrations && (
           <div className="flex items-center gap-1">

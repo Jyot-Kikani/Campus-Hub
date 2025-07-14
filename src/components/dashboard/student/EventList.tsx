@@ -1,15 +1,21 @@
+
 "use client";
 
 import { EventCard } from "@/components/EventCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Event } from "@/lib/types";
+import type { Event, Registration } from "@/lib/types";
 
 interface EventListProps {
   events: Event[];
+  registrations: Registration[];
+  onRegister: (eventId: string) => void;
+  onUnregister: (eventId: string) => void;
   isLoading: boolean;
 }
 
-export function EventList({ events, isLoading }: EventListProps) {
+export function EventList({ events, isLoading, registrations, onRegister, onUnregister }: EventListProps) {
+  const registeredEventIds = new Set(registrations.map(r => r.eventId));
+
   return (
     <div>
       <h2 className="text-2xl font-bold tracking-tight font-headline mb-4">Upcoming Events</h2>
@@ -30,6 +36,9 @@ export function EventList({ events, isLoading }: EventListProps) {
                     key={event.id}
                     event={event}
                     userRole="student"
+                    isRegistered={registeredEventIds.has(event.id)}
+                    onRegister={onRegister}
+                    onUnregister={onUnregister}
                 />
             ))}
         </div>
