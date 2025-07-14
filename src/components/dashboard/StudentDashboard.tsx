@@ -1,39 +1,56 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { mockEvents, mockClubs } from "@/lib/mock-data";
 import { EventList } from "@/components/dashboard/student/EventList";
 import { ClubList } from "@/components/dashboard/student/ClubList";
 import { CalendarView } from "@/components/dashboard/student/CalendarView";
 import { Calendar, Users, List } from "lucide-react";
+import { getEvents, getClubs } from "@/lib/firebase/services";
+import type { Event, Club } from "@/lib/types";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function StudentDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("events");
+  const [events, setEvents] = useState<Event[]>([]);
+  const [clubs, setClubs] = useState<Club[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      setIsLoading(true);
+      const [eventsData, clubsData] = await Promise.all([
+        getEvents(),
+        getClubs()
+      ]);
+      setEvents(eventsData.filter(e => new Date(e.date) > new Date()));
+      setClubs(clubsData);
+      setIsLoading(false);
+    }
+    fetchData();
+  }, []);
+
 
   if (!user) {
     return null;
   }
-
-  const upcomingEvents = mockEvents.filter(e => new Date(e.date) > new Date());
   
   const TABS = {
     events: {
       label: "Events",
       icon: List,
-      component: <EventList events={upcomingEvents} />,
+      component: <EventList events={events} isLoading={isLoading} />,
     },
     clubs: {
       label: "Clubs",
       icon: Users,
-      component: <ClubList clubs={mockClubs} />,
+      component: <ClubList clubs={clubs} isLoading={isLoading} />,
     },
     calendar: {
       label: "Calendar",
       icon: Calendar,
-      component: <CalendarView events={mockEvents} />,
+      component: <CalendarView events={events} isLoading={isLoading} />,
     },
   };
 

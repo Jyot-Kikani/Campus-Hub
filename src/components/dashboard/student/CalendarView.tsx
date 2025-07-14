@@ -7,12 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface CalendarViewProps {
   events: Event[];
+  isLoading: boolean;
 }
 
-export function CalendarView({ events }: CalendarViewProps) {
+export function CalendarView({ events, isLoading }: CalendarViewProps) {
   const [date, setDate] = useState<Date | undefined>(new Date());
   
   const selectedDayEvents = events.filter(event => {
@@ -30,6 +32,7 @@ export function CalendarView({ events }: CalendarViewProps) {
         <div className="md:col-span-2">
           <Card>
             <CardContent className="p-0">
+               {isLoading ? <Skeleton className="w-full h-[350px]" /> :
                <Calendar
                 mode="single"
                 selected={date}
@@ -46,7 +49,7 @@ export function CalendarView({ events }: CalendarViewProps) {
                   day: "h-12 w-12",
                   head_cell: "w-12",
                 }}
-              />
+              />}
             </CardContent>
           </Card>
         </div>
@@ -54,7 +57,12 @@ export function CalendarView({ events }: CalendarViewProps) {
           <h3 className="font-headline text-lg">
             Events on {date ? date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) : 'selected date'}
           </h3>
-          {selectedDayEvents.length > 0 ? (
+          {isLoading ? (
+             <div className="space-y-4">
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
+             </div>
+          ) : selectedDayEvents.length > 0 ? (
             <div className="space-y-4">
               {selectedDayEvents.map(event => (
                 <Card key={event.id}>

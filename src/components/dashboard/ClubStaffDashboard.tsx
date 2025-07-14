@@ -2,33 +2,42 @@
 
 import { useAuth } from "@/components/auth-provider";
 import { EventCard } from "@/components/EventCard";
-import { mockEvents, mockClubs, mockRegistrations, mockUsers } from "@/lib/mock-data";
-import type { Event, Club, Registration, User } from "@/lib/types";
-import { useState, useMemo } from "react";
+import { getClub, getEventsByClub, createEvent, updateEvent, deleteEvent, getRegisteredUsersForEvent } from "@/lib/firebase/services";
+import type { Event, Club, User } from "@/lib/types";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { EventForm } from "@/components/EventForm";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { toast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ClubStaffDashboard() {
   const { user } = useAuth();
-  const [events, setEvents] = useState<Event[]>(mockEvents);
-  const [clubs] = useState<Club[]>(mockClubs);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [club, setClub] = useState<Club | null>(null);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [registrations] = useState<Registration[]>(mockRegistrations);
-  const [users] = useState<User[]>(mockUsers);
   const [viewingRegistrations, setViewingRegistrations] = useState<string | null>(null);
+  const [registeredUsers, setRegisteredUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUsersLoading, setIsUsersLoading] = useState(false);
 
-  const club = useMemo(() => {
-    return clubs.find(c => c.id === user?.clubId);
-  }, [clubs, user]);
-
-  const clubEvents = useMemo(() => {
-    return events.filter(e => e.clubId === user?.clubId).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [events, user]);
+  useEffect(() => {
+    if (user?.clubId) {
+      setIsLoading(true);
+      Promise.all([
+        getClub(user.clubId),
+        getEventsByClub(user.clubId)
+      ]).then(([clubData, eventsData]) => {
+        setClub(clubData);
+        setEvents(eventsData.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        setIsLoading(false);
+      });
+    }
+  }, [user]);
 
   const handleEdit = (event: Event) => {
     setEditingEvent(event);
@@ -40,34 +49,49 @@ export default function ClubStaffDashboard() {
     setIsFormOpen(true);
   };
   
-  const handleDelete = (eventId: string) => {
+  const handleDelete = async (eventId: string) => {
     // Add a confirmation dialog in a real app
-    setEvents(prev => prev.filter(e => e.id !== eventId));
-  };
-
-  const handleFormSubmit = (eventData: Omit<Event, 'id' | 'organizer' | 'clubId'>) => {
-    if(!club) return;
-
-    if (editingEvent) {
-      setEvents(prev => prev.map(e => e.id === editingEvent.id ? { ...e, ...eventData, organizer: club.name } : e));
-    } else {
-      const newEvent: Event = {
-        id: `e${Date.now()}`,
-        ...eventData,
-        clubId: club.id,
-        organizer: club.name,
-      };
-      setEvents(prev => [newEvent, ...prev]);
+    try {
+      await deleteEvent(eventId);
+      setEvents(prev => prev.filter(e => e.id !== eventId));
+      toast({ title: "Success", description: "Event deleted successfully." });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to delete event.", variant: "destructive" });
     }
-    setIsFormOpen(false);
-    setEditingEvent(null);
   };
-  
-  const registeredUsersForEvent = useMemo(() => {
-    if (!viewingRegistrations) return [];
-    const eventRegistrations = registrations.filter(r => r.eventId === viewingRegistrations);
-    return users.filter(u => eventRegistrations.some(r => r.userId === u.id));
-  }, [viewingRegistrations, registrations, users]);
+
+  const handleFormSubmit = async (eventData: Omit<Event, 'id' | 'organizer' | 'clubId'>) => {
+    if(!club) return;
+    
+    try {
+      if (editingEvent) {
+        await updateEvent(editingEvent.id, { ...eventData, organizer: club.name });
+      } else {
+        const newEvent: Omit<Event, 'id'> = {
+          ...eventData,
+          clubId: club.id,
+          organizer: club.name,
+        };
+        await createEvent(newEvent);
+      }
+      
+      const updatedEvents = await getEventsByClub(club.id);
+      setEvents(updatedEvents.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      setIsFormOpen(false);
+      setEditingEvent(null);
+      toast({ title: "Success", description: `Event ${editingEvent ? 'updated' : 'created'} successfully.` });
+    } catch (error) {
+      toast({ title: "Error", description: `Failed to ${editingEvent ? 'update' : 'create'} event.`, variant: "destructive" });
+    }
+  };
+
+  const handleViewRegistrations = async (eventId: string) => {
+    setViewingRegistrations(eventId);
+    setIsUsersLoading(true);
+    const users = await getRegisteredUsersForEvent(eventId);
+    setRegisteredUsers(users);
+    setIsUsersLoading(false);
+  }
   
   const eventToView = viewingRegistrations ? events.find(e => e.id === viewingRegistrations) : null;
 
@@ -75,12 +99,12 @@ export default function ClubStaffDashboard() {
     <div className="space-y-8">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-4xl font-headline text-primary">Manage Events for {club?.name}</h1>
+          <h1 className="text-4xl font-headline text-primary">Manage Events for {isLoading ? <Skeleton className="h-10 w-48 inline-block" /> : club?.name}</h1>
           <p className="text-lg font-body text-muted-foreground mt-2">Create, update, and oversee your club's activities.</p>
         </div>
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
           <DialogTrigger asChild>
-            <Button onClick={handleCreateNew}><PlusCircle className="mr-2 h-4 w-4" />Create Event</Button>
+            <Button onClick={handleCreateNew} disabled={isLoading}><PlusCircle className="mr-2 h-4 w-4" />Create Event</Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
@@ -92,14 +116,16 @@ export default function ClubStaffDashboard() {
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {clubEvents.map(event => (
+        {isLoading ? (
+            Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-64 w-full" />)
+        ) : events.map(event => (
           <EventCard
             key={event.id}
             event={event}
             userRole="club_staff"
             onEdit={handleEdit}
             onDelete={handleDelete}
-            onViewRegistrations={(eventId) => setViewingRegistrations(eventId)}
+            onViewRegistrations={handleViewRegistrations}
           />
         ))}
       </div>
@@ -108,11 +134,17 @@ export default function ClubStaffDashboard() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-headline text-2xl">Registrations for {eventToView?.name}</DialogTitle>
-            <DialogDescription>{registeredUsersForEvent.length} student(s) registered.</DialogDescription>
+            <DialogDescription>{isUsersLoading ? "Loading..." : `${registeredUsers.length} student(s) registered.`}</DialogDescription>
           </DialogHeader>
-            {registeredUsersForEvent.length > 0 ? (
+            {isUsersLoading ? (
+                <div className="space-y-2">
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                </div>
+            ) : registeredUsers.length > 0 ? (
               <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                {registeredUsersForEvent.map(user => (
+                {registeredUsers.map(user => (
                   <Card key={user.id}>
                     <CardContent className="p-3 flex items-center gap-4">
                       <Avatar>

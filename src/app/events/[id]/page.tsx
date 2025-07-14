@@ -1,7 +1,4 @@
-'use client';
-
-import { useParams } from 'next/navigation';
-import { mockEvents, mockClubs } from '@/lib/mock-data';
+import { getEvent, getClub } from '@/lib/firebase/services';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,30 +6,28 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, Calendar, MapPin, Users } from 'lucide-react';
 import { AuthProvider } from '@/components/auth-provider';
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 
-function EventDetailPageContent() {
-    const params = useParams();
-    const id = params.id as string;
+type Props = {
+    params: { id: string }
+}
 
-    const event = mockEvents.find((e) => e.id === id);
-    const club = event ? mockClubs.find(c => c.id === event.clubId) : undefined;
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const event = await getEvent(params.id);
+  return {
+    title: event ? `${event.name} | Campus Hub` : 'Event Not Found',
+  }
+}
+
+async function EventDetailPageContent({ eventId }: { eventId: string }) {
+    const event = await getEvent(eventId);
     
     if (!event) {
-        return (
-            <div className="flex flex-col min-h-screen">
-                <Header />
-                <main className="flex-grow container mx-auto px-4 py-8 text-center">
-                    <h1 className="text-2xl font-bold">Event not found</h1>
-                    <Link href="/" passHref>
-                       <Button variant="link" className="mt-4">
-                         <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
-                       </Button>
-                    </Link>
-                </main>
-            </div>
-        )
+        notFound();
     }
-
+    
+    const club = await getClub(event.clubId);
     const eventDate = new Date(event.date);
 
     return (
@@ -106,10 +101,10 @@ function EventDetailPageContent() {
 }
 
 
-export default function EventDetailPage() {
+export default function EventDetailPage({ params }: Props) {
     return (
         <AuthProvider>
-            <EventDetailPageContent />
+            <EventDetailPageContent eventId={params.id} />
         </AuthProvider>
     )
 }
