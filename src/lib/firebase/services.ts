@@ -56,8 +56,8 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 }
 
 export async function createUser(userData: Omit<User, 'id'>): Promise<User> {
-    const docRef = await addDoc(collection(db, 'users'), userData);
-    return { id: docRef.id, ...userData };
+    const docRef = await addDoc(collection(db, 'users'), { ...userData, clubId: null });
+    return { id: docRef.id, ...userData, clubId: null };
 }
 
 

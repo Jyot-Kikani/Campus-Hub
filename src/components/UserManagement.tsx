@@ -20,13 +20,16 @@ export function UserManagement() {
   const handleRoleChange = (userId: string, newRole: UserRole) => {
     const userData: Partial<User> = { role: newRole };
     if (newRole !== 'club_staff') {
-      userData.clubId = ''; // Clear clubId if role is not club_staff
+      // Using null is better than an empty string for "no value" in Firestore
+      userData.clubId = null; 
     }
     updateUser(userId, userData);
   };
 
   const handleClubChange = (userId: string, newClubId: string) => {
-    updateUser(userId, { clubId: newClubId });
+    // newClubId will be the club's ID, or an empty string if cleared.
+    // We store null in the database for "no club".
+    updateUser(userId, { clubId: newClubId || null });
   };
   
   return (
@@ -69,15 +72,15 @@ export function UserManagement() {
                 </TableCell>
                 <TableCell>
                   <Select
-                    value={user.clubId || ""}
+                    value={user.clubId || ""} // The Select value can be an empty string to show the placeholder
                     onValueChange={(newClubId) => handleClubChange(user.id, newClubId)}
                     disabled={user.role !== 'club_staff' || user.id === currentUser?.id}
                   >
                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Select a club" />
+                        <SelectValue placeholder="No club assigned" />
                      </SelectTrigger>
                      <SelectContent>
-                        <SelectItem value="" disabled>No club assigned</SelectItem>
+                        {/* A SelectItem's value cannot be an empty string. The placeholder handles this state. */}
                         {clubs.map(club => (
                            <SelectItem key={club.id} value={club.id}>{club.name}</SelectItem>
                         ))}

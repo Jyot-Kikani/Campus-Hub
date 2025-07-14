@@ -5,7 +5,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
-  clubId?: string; // for club_staff
+  clubId?: string | null; // for club_staff, can be null
 }
 
 export interface Club {
