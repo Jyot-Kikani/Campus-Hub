@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/firebase/config';
@@ -60,9 +61,9 @@ export async function createUser(userData: Omit<User, 'id'>): Promise<User> {
 }
 
 
-export async function updateUserRole(userId: string, newRole: User['role']) {
+export async function updateUser(userId: string, data: Partial<User>) {
     const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, { role: newRole });
+    await updateDoc(userRef, data);
     revalidatePath('/dashboard');
 }
 

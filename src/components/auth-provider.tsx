@@ -1,12 +1,13 @@
 
 "use client";
 
-import type { User } from "@/lib/types";
+import type { Club, User } from "@/lib/types";
 import { 
     getUsers, 
     getUserByEmail, 
     createUser,
-    updateUserRole as updateRoleInDb 
+    updateUser as updateUserInDb,
+    getClubs,
 } from "@/lib/firebase/services";
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useContext } from "react";
 import { auth } from '@/lib/firebase/config';
@@ -23,8 +24,9 @@ interface AuthContextType {
   loading: boolean;
   login: () => Promise<void>;
   logout: () => void;
-  updateUserRole: (userId: string, newRole: User["role"]) => void;
+  updateUser: (userId: string, data: Partial<User>) => Promise<void>;
   users: User[];
+  clubs: Club[];
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,6 +34,7 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
+  const [clubs, setClubs] = useState<Club[]>([]);
   const [loading, setLoading] = useState(true);
   const [isHandlingUser, setIsHandlingUser] = useState(false);
 
@@ -70,7 +73,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         handleUser(firebaseUser);
     });
 
-    getUsers().then(setUsers);
+    Promise.all([
+      getUsers(),
+      getClubs()
+    ]).then(([usersData, clubsData]) => {
+      setUsers(usersData);
+      setClubs(clubsData);
+    })
 
     return () => unsubscribe();
   }, [handleUser]);
@@ -80,9 +89,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      // onAuthStateChanged will handle user creation
     } catch (error) {
       console.error("Login error:", error);
+    } finally {
       setLoading(false);
     }
   }, []);
@@ -92,14 +101,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const updateUserRole = useCallback(async (userId: string, newRole: User["role"]) => {
-    await updateRoleInDb(userId, newRole);
+  const updateUser = useCallback(async (userId: string, data: Partial<User>) => {
+    await updateUserInDb(userId, data);
     const updatedUsers = await getUsers();
     setUsers(updatedUsers);
   }, []);
 
 
-  const value = { user, loading, login, logout, updateUserRole, users };
+  const value = { user, loading, login, logout, updateUser, users, clubs };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
