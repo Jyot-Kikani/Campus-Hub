@@ -37,7 +37,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const handleUser = useCallback(async (firebaseUser: FirebaseUser | null) => {
-    setLoading(true);
     console.log("🧪 handleUser - firebaseUser:", firebaseUser);
   
     if (firebaseUser?.email) {
@@ -66,51 +65,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
   
   useEffect(() => {
-    // Check session storage first for quick restore
     const sessionUserJson = sessionStorage.getItem("campus-hub-user");
     if (sessionUserJson) {
-      setUser(JSON.parse(sessionUserJson));
-      setLoading(false);
-    }
-
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        const sessionUser = sessionStorage.getItem("campus-hub-user");
-        if (!sessionUser) { // only handle if not already set by session
-            handleUser(firebaseUser);
-        }
-      } else {
-        // No user is signed in
-        setUser(null);
-        sessionStorage.removeItem("campus-hub-user");
-        setLoading(false);
-      }
-    });
-
-    // Handle the redirect result
-    (async () => {
       try {
-        setLoading(true);
-        const result = await getRedirectResult(auth);
-        console.log("🧪 Redirect result:", result);
+        const sessionUser = JSON.parse(sessionUserJson);
+        setUser(sessionUser);
+      } catch (e) {
+        sessionStorage.removeItem("campus-hub-user");
+      }
+    }
     
+    // This flag helps prevent race conditions between getRedirectResult and onAuthStateChanged
+    let redirectResultHandled = false;
+
+    // Handle the redirect result from Google Sign-In
+    getRedirectResult(auth)
+      .then(async (result) => {
+        console.log("🧪 Redirect result:", result);
+        redirectResultHandled = true;
         if (result?.user) {
           await handleUser(result.user);
-        }
-      } catch (error) {
-        console.error("🧪 Redirect result error:", error);
-      } finally {
-        // Let onAuthStateChanged handle the final loading state
-        // to avoid race conditions
-        const finalLoadingState = auth.currentUser ? false : true;
-        if(sessionStorage.getItem("campus-hub-user")) {
-            setLoading(false);
         } else {
-            setLoading(finalLoadingState);
+          // If no result, onAuthStateChanged will handle it, or we stop loading if no user is found.
+           if (!auth.currentUser) {
+            setLoading(false);
+           }
+        }
+      })
+      .catch((error) => {
+        console.error("🧪 Redirect result error:", error);
+        setLoading(false);
+      });
+
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+       // Wait for getRedirectResult to finish before processing onAuthStateChanged
+       // to avoid setting user to null and then back to the logged in user.
+      if (redirectResultHandled) {
+        console.log("🧪 onAuthStateChanged - firebaseUser:", firebaseUser);
+        if (firebaseUser) {
+          const sessionUser = sessionStorage.getItem("campus-hub-user");
+          // Update user state only if it's not already set by session restore or redirect handler
+          if (!sessionUser || JSON.parse(sessionUser).id !== firebaseUser.uid) {
+              handleUser(firebaseUser);
+          } else {
+            setLoading(false);
+          }
+        } else {
+          handleUser(null);
         }
       }
-    })();    
-    
+    });
     
     getUsers().then(setUsers);
 
