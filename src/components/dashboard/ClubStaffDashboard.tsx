@@ -1,10 +1,11 @@
+
 "use client";
 
 import { useAuth } from "@/components/auth-provider";
 import { EventCard } from "@/components/EventCard";
 import { getClub, getEventsByClub, createEvent, updateEvent, deleteEvent, getRegisteredUsersForEvent } from "@/lib/firebase/services";
 import type { Event, Club, User } from "@/lib/types";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -25,19 +26,27 @@ export default function ClubStaffDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUsersLoading, setIsUsersLoading] = useState(false);
 
-  useEffect(() => {
+  const fetchClubData = useCallback(async () => {
     if (user?.clubId) {
       setIsLoading(true);
-      Promise.all([
-        getClub(user.clubId),
-        getEventsByClub(user.clubId)
-      ]).then(([clubData, eventsData]) => {
+      try {
+        const [clubData, eventsData] = await Promise.all([
+          getClub(user.clubId),
+          getEventsByClub(user.clubId)
+        ]);
         setClub(clubData);
-        setEvents(eventsData.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        setEvents(eventsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      } catch (error) {
+        toast({ title: "Error", description: "Failed to load club data.", variant: "destructive" });
+      } finally {
         setIsLoading(false);
-      });
+      }
     }
-  }, [user]);
+  }, [user?.clubId]);
+
+  useEffect(() => {
+    fetchClubData();
+  }, [fetchClubData]);
 
   const handleEdit = (event: Event) => {
     setEditingEvent(event);
@@ -50,7 +59,6 @@ export default function ClubStaffDashboard() {
   };
   
   const handleDelete = async (eventId: string) => {
-    // Add a confirmation dialog in a real app
     try {
       await deleteEvent(eventId);
       setEvents(prev => prev.filter(e => e.id !== eventId));
@@ -75,8 +83,7 @@ export default function ClubStaffDashboard() {
         await createEvent(newEvent);
       }
       
-      const updatedEvents = await getEventsByClub(club.id);
-      setEvents(updatedEvents.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      await fetchClubData();
       setIsFormOpen(false);
       setEditingEvent(null);
       toast({ title: "Success", description: `Event ${editingEvent ? 'updated' : 'created'} successfully.` });
@@ -118,7 +125,7 @@ export default function ClubStaffDashboard() {
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
             Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-64 w-full" />)
-        ) : events.map(event => (
+        ) : events.length > 0 ? events.map(event => (
           <EventCard
             key={event.id}
             event={event}
@@ -127,7 +134,9 @@ export default function ClubStaffDashboard() {
             onDelete={handleDelete}
             onViewRegistrations={handleViewRegistrations}
           />
-        ))}
+        )) : (
+          <p className="text-muted-foreground col-span-full text-center py-8">Your club has no upcoming events.</p>
+        )}
       </div>
       
       <Dialog open={!!viewingRegistrations} onOpenChange={(open) => !open && setViewingRegistrations(null)}>

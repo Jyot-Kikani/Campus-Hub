@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { EventList } from "@/components/dashboard/student/EventList";
 import { ClubList } from "@/components/dashboard/student/ClubList";
@@ -20,7 +20,7 @@ export default function StudentDashboard() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchStudentData = async () => {
+  const fetchStudentData = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
     const [eventsData, clubsData, registrationsData] = await Promise.all([
@@ -32,11 +32,11 @@ export default function StudentDashboard() {
     setClubs(clubsData);
     setRegistrations(registrationsData);
     setIsLoading(false);
-  }
+  }, [user]);
 
   useEffect(() => {
     fetchStudentData();
-  }, [user]);
+  }, [fetchStudentData]);
 
   const handleRegister = async (eventId: string) => {
     if (!user) return;
