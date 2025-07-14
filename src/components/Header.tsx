@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import Link from "next/link";
 
 export function Header() {
   const { user, logout } = useAuth();
@@ -19,9 +20,11 @@ export function Header() {
   return (
     <header className="bg-card/80 backdrop-blur-sm sticky top-0 z-40 border-b">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <div className="text-2xl font-headline text-primary">
-          Campus Hub
-        </div>
+        <Link href="/" passHref>
+          <div className="text-2xl font-headline font-bold text-primary cursor-pointer">
+            Campus Hub
+          </div>
+        </Link>
         {user && (
           <div className="flex items-center gap-4">
             <span className="hidden sm:inline font-body">Welcome, {user.name.split(' ')[0]}!</span>
