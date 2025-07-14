@@ -12,13 +12,11 @@ import React, { createContext, useState, useEffect, ReactNode, useCallback, useC
 import { auth } from '@/lib/firebase/config';
 import { 
     GoogleAuthProvider, 
-    signInWithRedirect,
-    getRedirectResult,
+    signInWithPopup,
     signOut, 
     onAuthStateChanged, 
     type User as FirebaseUser 
 } from "firebase/auth";
-import { browserLocalPersistence, setPersistence } from "firebase/auth";
 
 interface AuthContextType {
   user: User | null;
@@ -37,12 +35,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const handleUser = useCallback(async (firebaseUser: FirebaseUser | null) => {
-    console.log("🧪 handleUser - firebaseUser:", firebaseUser);
-  
     if (firebaseUser?.email) {
       let appUser = await getUserByEmail(firebaseUser.email);
-      console.log("🧪 handleUser - existing user from DB:", appUser);
-  
       if (!appUser) {
         const newUser: Omit<User, 'id'> = {
           email: firebaseUser.email,
@@ -50,72 +44,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: "student",
         };
         appUser = await createUser(newUser);
-        console.log("🧪 handleUser - created new user:", appUser);
       }
-  
       setUser(appUser);
-      sessionStorage.setItem("campus-hub-user", JSON.stringify(appUser));
+      setLoading(false);
+      return appUser;
     } else {
-      console.log("🧪 handleUser - No firebaseUser or no email");
       setUser(null);
-      sessionStorage.removeItem("campus-hub-user");
+      setLoading(false);
+      return null;
     }
-  
-    setLoading(false);
   }, []);
-  
+
   useEffect(() => {
-    const sessionUserJson = sessionStorage.getItem("campus-hub-user");
-    if (sessionUserJson) {
-      try {
-        const sessionUser = JSON.parse(sessionUserJson);
-        setUser(sessionUser);
-      } catch (e) {
-        sessionStorage.removeItem("campus-hub-user");
-      }
-    }
-    
-    // This flag helps prevent race conditions between getRedirectResult and onAuthStateChanged
-    let redirectResultHandled = false;
-
-    // Handle the redirect result from Google Sign-In
-    getRedirectResult(auth)
-      .then(async (result) => {
-        console.log("🧪 Redirect result:", result);
-        redirectResultHandled = true;
-        if (result?.user) {
-          await handleUser(result.user);
-        } else {
-          // If no result, onAuthStateChanged will handle it, or we stop loading if no user is found.
-           if (!auth.currentUser) {
-            setLoading(false);
-           }
-        }
-      })
-      .catch((error) => {
-        console.error("🧪 Redirect result error:", error);
-        setLoading(false);
-      });
-
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-       // Wait for getRedirectResult to finish before processing onAuthStateChanged
-       // to avoid setting user to null and then back to the logged in user.
-      if (redirectResultHandled) {
-        console.log("🧪 onAuthStateChanged - firebaseUser:", firebaseUser);
-        if (firebaseUser) {
-          const sessionUser = sessionStorage.getItem("campus-hub-user");
-          // Update user state only if it's not already set by session restore or redirect handler
-          if (!sessionUser || JSON.parse(sessionUser).id !== firebaseUser.uid) {
-              handleUser(firebaseUser);
-          } else {
-            setLoading(false);
-          }
-        } else {
-          handleUser(null);
-        }
-      }
+        handleUser(firebaseUser);
     });
-    
+
     getUsers().then(setUsers);
 
     return () => unsubscribe();
@@ -124,20 +68,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async () => {
     setLoading(true);
     const provider = new GoogleAuthProvider();
-  
     try {
-      await setPersistence(auth, browserLocalPersistence);
-      await signInWithRedirect(auth, provider);
-    } catch (err) {
-      console.error("🧪 Login error:", err);
+      const result = await signInWithPopup(auth, provider);
+      await handleUser(result.user);
+    } catch (error) {
+      console.error("Login error:", error);
       setLoading(false);
     }
-  }, []);
+  }, [handleUser]);
 
   const logout = useCallback(async () => {
     await signOut(auth);
     setUser(null);
-    sessionStorage.removeItem("campus-hub-user");
   }, []);
 
   const updateUserRole = useCallback(async (userId: string, newRole: User["role"]) => {
