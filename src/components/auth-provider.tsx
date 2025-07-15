@@ -1,22 +1,29 @@
-
 "use client";
 
 import type { Club, User } from "@/lib/types";
-import { 
-    getUsers, 
-    getUserByEmail, 
-    createUser,
-    updateUser as updateUserInDb,
-    getClubs,
+import {
+  getUsers,
+  getUserByEmail,
+  createUser,
+  updateUser as updateUserInDb,
+  getClubs,
 } from "@/lib/firebase/services";
-import React, { createContext, useState, useEffect, ReactNode, useCallback, useContext, useMemo } from "react";
-import { auth } from '@/lib/firebase/config';
-import { 
-    GoogleAuthProvider, 
-    signInWithPopup,
-    signOut, 
-    onAuthStateChanged, 
-    type User as FirebaseUser 
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useCallback,
+  useContext,
+  useMemo,
+} from "react";
+import { auth } from "@/lib/firebase/config";
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+  type User as FirebaseUser,
 } from "firebase/auth";
 
 interface AuthContextType {
@@ -29,14 +36,15 @@ interface AuthContextType {
   clubs: Club[];
 }
 
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(
+  undefined
+);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isHandlingUser, setIsHandlingUser] = useState(false);
 
   const fetchInitialData = useCallback(async () => {
     try {
@@ -49,14 +57,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const handleUser = useCallback(async (firebaseUser: FirebaseUser | null) => {
-    if (isHandlingUser) return;
-    setIsHandlingUser(true);
-
     if (firebaseUser?.email) {
       try {
         let appUser = await getUserByEmail(firebaseUser.email);
         if (!appUser) {
-          const newUser: Omit<User, 'id'> = {
+          const newUser: Omit<User, "id"> = {
             email: firebaseUser.email,
             name: firebaseUser.displayName || "New User",
             role: "student",
@@ -64,20 +69,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           appUser = await createUser(newUser);
         }
         setUser(appUser);
+        sessionStorage.setItem("campus-hub-user", JSON.stringify(appUser));
       } catch (error) {
         console.error("Error handling user:", error);
         setUser(null);
+        sessionStorage.removeItem("campus-hub-user");
       }
     } else {
       setUser(null);
+      sessionStorage.removeItem("campus-hub-user");
     }
     setLoading(false);
-    setIsHandlingUser(false);
-  }, [isHandlingUser]);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, handleUser);
-    fetchInitialData();
+
+    // Load cached session
+    const sessionUser = sessionStorage.getItem("campus-hub-user");
+    if (sessionUser) {
+      try {
+        setUser(JSON.parse(sessionUser));
+        setLoading(false);
+      } catch (e) {
+        sessionStorage.removeItem("campus-hub-user");
+      }
+    }
+
+    // Fetch users + clubs (admin panel / context)
+    getUsers().then(setUsers);
+    getClubs().then(setClubs);
+
     return () => unsubscribe();
   }, [handleUser, fetchInitialData]);
 
@@ -91,29 +113,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Login error:", error);
       setLoading(false);
     }
-  }, []);
+  }, [handleUser]);
 
   const logout = useCallback(async () => {
     await signOut(auth);
     setUser(null);
+    sessionStorage.removeItem("campus-hub-user");
   }, []);
 
-  const updateUser = useCallback(async (userId: string, data: Partial<User>) => {
-    await updateUserInDb(userId, data);
-    const updatedUsers = await getUsers();
-    setUsers(updatedUsers);
-  }, []);
+  const updateUser = useCallback(
+    async (userId: string, data: Partial<User>) => {
+      await updateUserInDb(userId, data);
+      const updatedUsers = await getUsers();
+      setUsers(updatedUsers);
+    },
+    []
+  );
 
-
-  const value = useMemo(() => ({
-    user,
-    loading,
-    login,
-    logout,
-    updateUser,
-    users,
-    clubs
-  }), [user, loading, login, logout, updateUser, users, clubs]);
+  const value = useMemo(
+    () => ({
+      user,
+      loading,
+      login,
+      logout,
+      updateUser,
+      users,
+      clubs,
+    }),
+    [user, loading, login, logout, updateUser, users, clubs]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
