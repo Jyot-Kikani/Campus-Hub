@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar, MapPin, Users, Edit, Trash2, ArrowRight } from "lucide-react";
 import type { UserRole } from "@/lib/types";
 import Link from "next/link";
+import Image from "next/image";
 
 interface EventCardProps {
   event: Event;
@@ -28,14 +29,20 @@ export function EventCard({
   onViewRegistrations
 }: EventCardProps) {
   const eventDate = new Date(event.date);
+  const eventImage = event.imageUrl || 'https://placehold.co/600x400.png';
 
   return (
-    <Card className="flex flex-col h-full overflow-hidden transition-shadow duration-300 ease-in-out hover:shadow-lg">
-      <CardHeader>
-        <CardTitle className="font-headline text-xl text-primary">{event.name}</CardTitle>
-        <CardDescription className="font-body">{event.organizer}</CardDescription>
+    <Card className="flex flex-col h-full overflow-hidden transition-shadow duration-300 ease-in-out hover:shadow-lg group">
+      <CardHeader className="p-0">
+        <div className="relative h-40 w-full overflow-hidden">
+            <Image src={eventImage} alt={event.name} layout="fill" objectFit="cover" className="transition-transform duration-300 group-hover:scale-105" data-ai-hint="campus event" />
+        </div>
+        <div className="p-4">
+            <CardTitle className="font-headline text-xl text-primary">{event.name}</CardTitle>
+            <CardDescription className="font-body">{event.organizer}</CardDescription>
+        </div>
       </CardHeader>
-      <CardContent className="flex-grow space-y-3">
+      <CardContent className="flex-grow space-y-3 px-4 pb-4">
         <p className="font-body text-sm text-muted-foreground line-clamp-3">{event.description}</p>
         <div className="space-y-1.5 font-body text-xs">
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -49,7 +56,7 @@ export function EventCard({
         </div>
       </CardContent>
       <CardFooter className="flex justify-between items-center pt-4 bg-secondary/50 p-4">
-        <Link href={`/events/${event.id}`}>
+        <Link href={`/events/${event.id}`} passHref>
            <Button variant="link" className="p-0 h-auto">View Details <ArrowRight className="ml-1 h-4 w-4" /></Button>
         </Link>
         {userRole === 'student' && onRegister && onUnregister && (

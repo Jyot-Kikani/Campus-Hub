@@ -38,6 +38,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isHandlingUser, setIsHandlingUser] = useState(false);
 
+  const fetchInitialData = useCallback(async () => {
+    try {
+      const [usersData, clubsData] = await Promise.all([getUsers(), getClubs()]);
+      setUsers(usersData);
+      setClubs(clubsData);
+    } catch (error) {
+      console.error("Failed to fetch initial data", error);
+    }
+  }, []);
+
   const handleUser = useCallback(async (firebaseUser: FirebaseUser | null) => {
     if (isHandlingUser) return;
     setIsHandlingUser(true);
@@ -57,40 +67,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error("Error handling user:", error);
         setUser(null);
-      } finally {
-        setLoading(false);
-        setIsHandlingUser(false);
       }
     } else {
       setUser(null);
-      setLoading(false);
-      setIsHandlingUser(false);
     }
+    setLoading(false);
+    setIsHandlingUser(false);
   }, [isHandlingUser]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-        handleUser(firebaseUser);
-    });
-
-    Promise.all([
-      getUsers(),
-      getClubs()
-    ]).then(([usersData, clubsData]) => {
-      setUsers(usersData);
-      setClubs(clubsData);
-    })
-
+    const unsubscribe = onAuthStateChanged(auth, handleUser);
+    fetchInitialData();
     return () => unsubscribe();
-  }, [handleUser]);
+  }, [handleUser, fetchInitialData]);
 
   const login = useCallback(async () => {
     setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
+      // onAuthStateChanged will handle the rest
     } catch (error) {
       console.error("Login error:", error);
+      setLoading(false);
     }
   }, []);
 

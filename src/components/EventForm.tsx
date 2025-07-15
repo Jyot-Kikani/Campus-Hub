@@ -16,12 +16,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Wand2 } from "lucide-react";
+import { CalendarIcon, Upload, Wand2 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import type { Event } from "@/lib/types";
 import { useState } from "react";
+import { uploadImage } from "@/lib/firebase/services";
+import Image from "next/image";
+import { toast } from "@/hooks/use-toast";
 // In a real application, you would import and use your Genkit flow like this:
 // import { generateDescription } from "@/ai/flows"; 
 
@@ -30,6 +33,7 @@ const formSchema = z.object({
   description: z.string().min(10, "Description must be at least 10 characters."),
   date: z.date({ required_error: "A date is required." }),
   location: z.string().min(3, "Location is required."),
+  imageUrl: z.string().url().optional().nullable(),
 });
 
 type EventFormProps = {
@@ -39,6 +43,9 @@ type EventFormProps = {
 
 export function EventForm({ onSubmit, event }: EventFormProps) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(event?.imageUrl || null);
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -47,6 +54,7 @@ export function EventForm({ onSubmit, event }: EventFormProps) {
       description: event?.description || "",
       date: event ? new Date(event.date) : undefined,
       location: event?.location || "",
+      imageUrl: event?.imageUrl || null,
     },
   });
   
@@ -64,6 +72,29 @@ export function EventForm({ onSubmit, event }: EventFormProps) {
     form.setValue("description", generatedDesc);
     form.clearErrors("description");
     setIsGenerating(false);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setIsUploading(true);
+      try {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+
+        const imageUrl = await uploadImage(file);
+        form.setValue("imageUrl", imageUrl);
+        toast({ title: "Success", description: "Image uploaded successfully." });
+      } catch (error) {
+        toast({ title: "Error", description: "Failed to upload image.", variant: "destructive" });
+        setImagePreview(event?.imageUrl || null); // Revert on failure
+      } finally {
+        setIsUploading(false);
+      }
+    }
   };
 
   return (
@@ -105,6 +136,28 @@ export function EventForm({ onSubmit, event }: EventFormProps) {
             </FormItem>
           )}
         />
+         <FormItem>
+          <FormLabel>Event Banner Image</FormLabel>
+          <FormControl>
+            <div className="flex items-center gap-4">
+              <div className="w-24 h-24 relative rounded-md border bg-muted overflow-hidden">
+                {imagePreview ? (
+                  <Image src={imagePreview} alt="Event image preview" layout="fill" objectFit="cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs text-center">No Image</div>
+                )}
+              </div>
+              <Button asChild variant="outline">
+                <label htmlFor="event-image-upload" className="cursor-pointer">
+                   <Upload className="mr-2 h-4 w-4" />
+                   {isUploading ? "Uploading..." : "Upload"}
+                  <input id="event-image-upload" type="file" className="sr-only" onChange={handleImageUpload} accept="image/*" disabled={isUploading}/>
+                </label>
+              </Button>
+            </div>
+          </FormControl>
+          <FormMessage />
+        </FormItem>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
@@ -159,7 +212,7 @@ export function EventForm({ onSubmit, event }: EventFormProps) {
             )}
           />
         </div>
-        <Button type="submit" className="w-full">{event ? "Save Changes" : "Create Event"}</Button>
+        <Button type="submit" className="w-full" disabled={isUploading}>{event ? "Save Changes" : "Create Event"}</Button>
       </form>
     </Form>
   );

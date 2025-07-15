@@ -13,9 +13,11 @@ interface ClubDetailPageClientProps {
 }
 
 export function ClubDetailPageClient({ club, initialEvents }: ClubDetailPageClientProps) {
+    const clubImage = club.imageUrl || 'https://placehold.co/1200x400.png';
+
     return (
         <main className="flex-grow container mx-auto px-4 py-8">
-            <Link href="/">
+            <Link href="/" passHref>
                 <Button variant="ghost" className="mb-6">
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
                 </Button>
@@ -23,7 +25,7 @@ export function ClubDetailPageClient({ club, initialEvents }: ClubDetailPageClie
             <Card>
                 <CardHeader className="p-0">
                      <div className="relative h-64 w-full rounded-t-lg overflow-hidden">
-                       <Image src={`https://placehold.co/1200x400.png`} alt={club.name} layout="fill" objectFit="cover" data-ai-hint="teamwork community" />
+                       <Image src={clubImage} alt={club.name} layout="fill" objectFit="cover" data-ai-hint="teamwork community" />
                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                        <div className="absolute bottom-6 left-6">
                          <h1 className="text-4xl font-headline font-bold text-white">{club.name}</h1>
@@ -54,7 +56,7 @@ export function ClubDetailPageClient({ club, initialEvents }: ClubDetailPageClie
                                                 </div>
                                             </div>
                                         </div>
-                                        <Link href={`/events/${event.id}`}>
+                                        <Link href={`/events/${event.id}`} passHref>
                                             <Button variant="outline">View Event</Button>
                                         </Link>
                                     </div>

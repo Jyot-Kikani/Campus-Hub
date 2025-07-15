@@ -1,7 +1,7 @@
 
 'use server';
 
-import { db } from '@/lib/firebase/config';
+import { db, storage } from '@/lib/firebase/config';
 import {
   collection,
   getDocs,
@@ -15,6 +15,7 @@ import {
   Timestamp,
   DocumentData,
 } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { User, Club, Event, Registration } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 
@@ -25,7 +26,7 @@ function docToType<T>(doc: DocumentData): T {
 
     for (const key in data) {
         if (data[key] instanceof Timestamp) {
-            result[key] = data[key].toDate();
+            result[key] = (data[key] as Timestamp).toDate().toISOString();
         } else {
             result[key] = data[key];
         }
@@ -33,6 +34,13 @@ function docToType<T>(doc: DocumentData): T {
     return result as T;
 }
 
+// Image upload service
+export async function uploadImage(file: File): Promise<string> {
+  const storageRef = ref(storage, `images/${Date.now()}-${file.name}`);
+  await uploadBytes(storageRef, file);
+  const downloadURL = await getDownloadURL(storageRef);
+  return downloadURL;
+}
 
 // User services
 export async function getUsers(): Promise<User[]> {
@@ -57,14 +65,16 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 
 export async function createUser(userData: Omit<User, 'id'>): Promise<User> {
     const docRef = await addDoc(collection(db, 'users'), { ...userData, clubId: null });
-    return { id: docRef.id, ...userData, clubId: null };
+    const newUser = await getDoc(docRef);
+    return docToType<User>(newUser);
 }
 
 
 export async function updateUser(userId: string, data: Partial<User>) {
     const userRef = doc(db, 'users', userId);
     await updateDoc(userRef, data);
-    revalidatePath('/dashboard');
+    const updatedUsers = await getUsers();
+    revalidatePath('/'); // Revalidating root to refresh users in AuthProvider
 }
 
 // Club services
@@ -82,19 +92,19 @@ export async function getClub(id: string): Promise<Club | null> {
 export async function createClub(clubData: Omit<Club, 'id'>) {
     const clubsCol = collection(db, 'clubs');
     await addDoc(clubsCol, clubData);
-    revalidatePath('/dashboard');
+    revalidatePath('/');
 }
 
 export async function updateClub(id: string, clubData: Partial<Club>) {
     const clubRef = doc(db, 'clubs', id);
     await updateDoc(clubRef, clubData);
-    revalidatePath('/dashboard');
+    revalidatePath('/');
     revalidatePath(`/clubs/${id}`);
 }
 
 export async function deleteClub(id: string) {
     await deleteDoc(doc(db, 'clubs', id));
-    revalidatePath('/dashboard');
+    revalidatePath('/');
 }
 
 
@@ -118,20 +128,28 @@ export async function getEventsByClub(clubId: string): Promise<Event[]> {
 
 export async function createEvent(eventData: Omit<Event, 'id'>) {
     const eventsCol = collection(db, 'events');
-    await addDoc(eventsCol, eventData);
-    revalidatePath('/dashboard');
+    const dataWithTimestamp = {
+        ...eventData,
+        date: Timestamp.fromDate(new Date(eventData.date))
+    };
+    await addDoc(eventsCol, dataWithTimestamp);
+    revalidatePath('/');
 }
 
-export async function updateEvent(id: string, eventData: Partial<Event>) {
+export async function updateEvent(id: string, eventData: Partial<Omit<Event, 'id' | 'clubId'>>) {
     const eventRef = doc(db, 'events', id);
-    await updateDoc(eventRef, eventData);
-    revalidatePath('/dashboard');
+    const dataToUpdate: Record<string, any> = { ...eventData };
+    if (eventData.date) {
+        dataToUpdate.date = Timestamp.fromDate(new Date(eventData.date));
+    }
+    await updateDoc(eventRef, dataToUpdate);
+    revalidatePath('/');
     revalidatePath(`/events/${id}`);
 }
 
 export async function deleteEvent(id: string) {
     await deleteDoc(doc(db, 'events', id));
-    revalidatePath('/dashboard');
+    revalidatePath('/');
 }
 
 
@@ -144,8 +162,6 @@ export async function getRegistrationsForUser(userId: string): Promise<Registrat
 
 export async function registerForEvent(userId: string, eventId: string) {
     await addDoc(collection(db, 'registrations'), { userId, eventId });
-    // This was causing a re-render loop. The client will re-fetch data instead.
-    // revalidatePath('/dashboard');
 }
 
 export async function unregisterFromEvent(userId: string, eventId: string) {
@@ -155,8 +171,6 @@ export async function unregisterFromEvent(userId: string, eventId: string) {
         const docId = snapshot.docs[0].id;
         await deleteDoc(doc(db, 'registrations', docId));
     }
-    // This was causing a re-render loop. The client will re-fetch data instead.
-    // revalidatePath('/dashboard');
 }
 
 export async function getRegistrationsForEvent(eventId: string): Promise<Registration[]> {

@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import * as z from 'zod';
 
 export default function ClubStaffDashboard() {
   const { user } = useAuth();
@@ -68,15 +69,20 @@ export default function ClubStaffDashboard() {
     }
   };
 
-  const handleFormSubmit = async (eventData: Omit<Event, 'id' | 'organizer' | 'clubId'>) => {
+  const handleFormSubmit = async (eventData: any) => {
     if(!club) return;
     
     try {
+      const payload = {
+          ...eventData,
+          date: eventData.date.toISOString(),
+      };
+
       if (editingEvent) {
-        await updateEvent(editingEvent.id, { ...eventData, organizer: club.name });
+        await updateEvent(editingEvent.id, { ...payload, organizer: club.name });
       } else {
         const newEvent: Omit<Event, 'id'> = {
-          ...eventData,
+          ...payload,
           clubId: club.id,
           organizer: club.name,
         };

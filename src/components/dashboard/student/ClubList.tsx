@@ -35,26 +35,29 @@ export function ClubList({ clubs, isLoading }: ClubListProps) {
                      </CardFooter>
                 </Card>
             ))
-        ) : clubs.map(club => (
-          <Card key={club.id} className="flex flex-col group">
-            <CardHeader>
-              <div className="relative h-40 w-full mb-4 rounded-md overflow-hidden">
-                <Image src={`https://placehold.co/600x400.png`} alt={club.name} layout="fill" objectFit="cover" className="transition-transform duration-300 group-hover:scale-105" data-ai-hint="students collaboration" />
-              </div>
-              <CardTitle className="font-headline text-xl text-primary">{club.name}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex-grow">
-              <CardDescription className="font-body line-clamp-3">{club.description}</CardDescription>
-            </CardContent>
-            <CardFooter className="pt-4">
-              <Link href={`/clubs/${club.id}`} className="w-full">
-                <Button variant="outline" className="w-full">
-                  Learn More <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-            </CardFooter>
-          </Card>
-        ))}
+        ) : clubs.map(club => {
+          const clubImage = club.imageUrl || 'https://placehold.co/600x400.png';
+          return (
+            <Card key={club.id} className="flex flex-col group">
+              <CardHeader>
+                <div className="relative h-40 w-full mb-4 rounded-md overflow-hidden">
+                  <Image src={clubImage} alt={club.name} layout="fill" objectFit="cover" className="transition-transform duration-300 group-hover:scale-105" data-ai-hint="students collaboration" />
+                </div>
+                <CardTitle className="font-headline text-xl text-primary">{club.name}</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-grow">
+                <CardDescription className="font-body line-clamp-3">{club.description}</CardDescription>
+              </CardContent>
+              <CardFooter className="pt-4">
+                <Link href={`/clubs/${club.id}`} passHref className="w-full">
+                  <Button variant="outline" className="w-full">
+                    Learn More <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </CardFooter>
+            </Card>
+          )
+        })}
       </div>
     </div>
   );

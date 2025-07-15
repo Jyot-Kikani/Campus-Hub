@@ -30,12 +30,13 @@ async function EventDetailPageContent({ eventId }: { eventId: string }) {
     
     const club = await getClub(event.clubId);
     const eventDate = new Date(event.date);
+    const eventImage = event.imageUrl || 'https://placehold.co/1200x600.png';
 
     return (
         <div className="flex flex-col min-h-screen bg-secondary/20">
             <Header />
             <main className="flex-grow container mx-auto px-4 py-8">
-                 <Link href="/">
+                 <Link href="/" passHref>
                     <Button variant="ghost" className="mb-6">
                         <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
                     </Button>
@@ -45,7 +46,7 @@ async function EventDetailPageContent({ eventId }: { eventId: string }) {
                         <Card>
                              <CardHeader className="p-0">
                                 <div className="relative h-64 w-full rounded-t-lg overflow-hidden">
-                                <Image src={`https://placehold.co/1200x600.png`} alt={event.name} layout="fill" objectFit="cover" data-ai-hint="event conference" />
+                                <Image src={eventImage} alt={event.name} layout="fill" objectFit="cover" data-ai-hint="event conference" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                                 </div>
                             </CardHeader>
@@ -81,7 +82,7 @@ async function EventDetailPageContent({ eventId }: { eventId: string }) {
                                         <Users className="w-4 h-4 mt-0.5 text-primary" />
                                         <div>
                                             <p className="font-semibold">Organized by</p>
-                                            <Link href={`/clubs/${club.id}`}>
+                                            <Link href={`/clubs/${club.id}`} passHref>
                                                 <Button variant="link" className="p-0 h-auto text-sm text-primary hover:underline">{club.name}</Button>
                                             </Link>
                                         </div>
